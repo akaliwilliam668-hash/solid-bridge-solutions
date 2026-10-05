@@ -1,0 +1,154 @@
+const renderOverview = (data) => {
+  if (!data) return;
+  document.getElementById('loan-count').textContent = data.loanCount || data.loans?.length || 0;
+  document.getElementById('product-count').textContent = data.electronicsCount || data.electronics?.length || 0;
+  document.getElementById('monthly-revenue').textContent = data.monthlyRevenue || 'EGP 0';
+  document.getElementById('message-count').textContent = data.contactMessages || 0;
+};
+
+const renderLoanList = (items = []) => {
+  const container = document.getElementById('loan-list');
+  if (!container) return;
+
+  if (!items.length) {
+    container.innerHTML = '<div class="data-item"><strong>No loans yet</strong></div>';
+    return;
+  }
+
+  container.innerHTML = items.slice(0, 5).map((item) => `
+    <div class="data-item">
+      <strong>${item.name}</strong>
+      <div class="data-meta">
+        <span>${item.amount}</span>
+        <span>${item.duration}</span>
+        <span>${item.rate}</span>
+        <span>${item.status}</span>
+      </div>
+    </div>
+  `).join('');
+};
+
+const renderElectronicsList = (items = []) => {
+  const container = document.getElementById('electronics-list');
+  if (!container) return;
+
+  if (!items.length) {
+    container.innerHTML = '<div class="data-item"><strong>No products yet</strong></div>';
+    return;
+  }
+
+  container.innerHTML = items.slice(0, 5).map((item) => `
+    <div class="data-item">
+      <strong>${item.name}</strong>
+      <div class="data-meta">
+        <span>${item.category}</span>
+        <span>${item.price}</span>
+        <span>Stock: ${item.stock}</span>
+        <span>${item.status}</span>
+      </div>
+    </div>
+  `).join('');
+};
+
+const renderMessages = (items = []) => {
+  const container = document.getElementById('message-list');
+  if (!container) return;
+
+  if (!items.length) {
+    container.innerHTML = '<div class="data-item"><strong>No messages yet</strong></div>';
+    return;
+  }
+
+  container.innerHTML = items.slice(0, 6).map((item) => `
+    <div class="data-item">
+      <strong>${item.name}</strong>
+      <div class="data-meta">
+        <span>${item.email}</span>
+        <span>${new Date(item.createdAt).toLocaleDateString()}</span>
+      </div>
+      <p>${item.message}</p>
+    </div>
+  `).join('');
+};
+
+async function fetchDashboardData() {
+  try {
+    const overviewRes = await fetch('/api/overview');
+    const overview = await overviewRes.json();
+    renderOverview(overview);
+
+    const loansRes = await fetch('/api/loans');
+    const loans = await loansRes.json();
+    renderLoanList(loans);
+
+    const productsRes = await fetch('/api/electronics');
+    const products = await productsRes.json();
+    renderElectronicsList(products);
+
+    const messagesRes = await fetch('/api/contact-messages');
+    const messages = await messagesRes.json();
+    renderMessages(messages);
+  } catch (error) {
+    console.error('Dashboard fetch failed:', error);
+  }
+}
+
+async function submitForm(url, form) {
+  const formData = Object.fromEntries(new FormData(form).entries());
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(formData)
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      throw new Error(result.message || 'Something went wrong.');
+    }
+
+    alert(result.message);
+    form.reset();
+    fetchDashboardData();
+  } catch (error) {
+    alert(error.message);
+  }
+}
+
+const initIndexPage = () => {
+  const contactForm = document.getElementById('contact-form');
+  if (contactForm) {
+    contactForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      await submitForm('/api/contact-message', contactForm);
+    });
+  }
+};
+
+const initAdminPage = () => {
+  const loanForm = document.getElementById('loan-form');
+  const productForm = document.getElementById('product-form');
+
+  if (loanForm) {
+    loanForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      await submitForm('/api/loans', loanForm);
+    });
+  }
+
+  if (productForm) {
+    productForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      await submitForm('/api/electronics', productForm);
+    });
+  }
+
+  fetchDashboardData();
+};
+
+if (document.location.pathname.includes('/admin.html')) {
+  initAdminPage();
+} else {
+  initIndexPage();
+}
